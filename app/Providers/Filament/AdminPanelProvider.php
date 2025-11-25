@@ -27,8 +27,14 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // --- CUSTOM BRANDING ---
+            ->brandName('Tangkas BOSP')
+            ->brandLogo(asset('img/logo-indramayu.png')) 
+            ->brandLogoHeight('3rem')
+            ->favicon(asset('img/logo-indramayu.png'))
+            // -----------------------
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::Blue, // Ganti ke Biru Dinas
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')

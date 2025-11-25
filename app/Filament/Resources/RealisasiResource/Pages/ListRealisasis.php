@@ -8,6 +8,7 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListRealisasis extends ListRecords
 {
+    // PASTE BARIS INI:
     protected static string $resource = RealisasiResource::class;
 
     protected function getHeaderActions(): array

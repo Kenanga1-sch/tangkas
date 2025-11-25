@@ -17,7 +17,8 @@ class MasterStandarHargaResource extends Resource
 {
     protected static ?string $model = MasterStandarHarga::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-currency-dollar'; // Saya ganti ikon sedikit agar relevan dengan harga
+    protected static ?string $navigationGroup = 'Master Data'; // Opsional: Mengelompokkan di sidebar
 
     public static function form(Form $form): Form
     {
@@ -107,5 +108,11 @@ class MasterStandarHargaResource extends Resource
             'create' => Pages\CreateMasterStandarHarga::route('/create'),
             'edit' => Pages\EditMasterStandarHarga::route('/{record}/edit'),
         ];
+    }
+
+    // Hanya Admin yang boleh akses
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->role === 'admin';
     }
 }

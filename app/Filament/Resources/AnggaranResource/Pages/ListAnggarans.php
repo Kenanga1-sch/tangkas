@@ -8,6 +8,7 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListAnggarans extends ListRecords
 {
+    // BARIS INI WAJIB ADA
     protected static string $resource = AnggaranResource::class;
 
     protected function getHeaderActions(): array

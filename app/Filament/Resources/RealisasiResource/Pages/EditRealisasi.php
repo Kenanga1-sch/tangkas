@@ -8,6 +8,7 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditRealisasi extends EditRecord
 {
+    // PASTE BARIS INI:
     protected static string $resource = RealisasiResource::class;
 
     protected function getHeaderActions(): array
@@ -15,5 +16,10 @@ class EditRealisasi extends EditRecord
         return [
             Actions\DeleteAction::make(),
         ];
+    }
+    
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
     }
 }

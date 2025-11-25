@@ -10,14 +10,23 @@ class Anggaran extends Model
 {
     protected $guarded = [];
 
-    // Relasi ke Detail
+    // Getter Virtual (Wajib untuk Form Filament)
+    public function getStandarPendidikanAttribute()
+    {
+        return $this->kegiatan->standar_pendidikan ?? null;
+    }
+
+    public function getUraianKegiatanAttribute()
+    {
+        return $this->kegiatan->uraian_kegiatan ?? null;
+    }
+
+    // Relasi
     public function details(): HasMany
     {
         return $this->hasMany(AnggaranDetail::class);
     }
 
-    // Relasi "Palsu" ke Master Kegiatan (karena kita pakai string kode, bukan ID)
-    // Ini trik agar bisa ambil nama kegiatan
     public function kegiatan()
     {
         return $this->belongsTo(MasterKegiatan::class, 'kode_sub_kegiatan', 'kode_sub_kegiatan');

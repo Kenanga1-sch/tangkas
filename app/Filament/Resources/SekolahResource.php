@@ -138,4 +138,11 @@ class SekolahResource extends Resource
             'edit' => Pages\EditSekolah::route('/{record}/edit'),
         ];
     }
+
+    // BAGIAN INI DITAMBAHKAN:
+    // Hanya Admin yang boleh akses menu Sekolah
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->role === 'admin';
+    }
 }

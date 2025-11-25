@@ -17,7 +17,8 @@ class MasterKegiatanResource extends Resource
 {
     protected static ?string $model = MasterKegiatan::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list'; // Ganti ikon agar beda
+    protected static ?string $navigationGroup = 'Master Data'; // Opsional: Mengelompokkan di sidebar
 
     public static function form(Form $form): Form
     {
@@ -89,5 +90,11 @@ class MasterKegiatanResource extends Resource
             'create' => Pages\CreateMasterKegiatan::route('/create'),
             'edit' => Pages\EditMasterKegiatan::route('/{record}/edit'),
         ];
+    }
+
+    // Hanya Admin yang boleh akses
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->role === 'admin';
     }
 }

@@ -3,19 +3,18 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\AnggaranResource\Pages;
-use App\Filament\Resources\AnggaranResource\RelationManagers;
 use App\Models\Anggaran;
-use App\Models\Realisasi; // <--- Import Model Realisasi
+use App\Models\Realisasi;
+use App\Models\MasterKegiatan;
+use App\Models\MasterStandarHarga;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
-use Filament\Notifications\Notification; // <--- Import Notifikasi
+use Filament\Notifications\Notification;
 
 class AnggaranResource extends Resource
 {
@@ -29,59 +28,95 @@ class AnggaranResource extends Resource
     {
         return $form
             ->schema([
-                // --- BAGIAN HEADER (KEGIATAN) ---
-                \Filament\Forms\Components\Section::make('Informasi Kegiatan')
+                // --- BAGIAN 1: HEADER KEGIATAN ---
+                Forms\Components\Section::make('Informasi Kegiatan')
                     ->schema([
-                        \Filament\Forms\Components\Select::make('kode_sub_kegiatan')
-                            ->label('Pilih Kegiatan')
-                            ->options(\App\Models\MasterKegiatan::all()->pluck('uraian_sub_kegiatan', 'kode_sub_kegiatan'))
-                            ->searchable() 
+                        // Field 1: STANDAR PENDIDIKAN
+                        Forms\Components\Select::make('standar_pendidikan')
+                            ->label('Standar Pendidikan')
+                            ->options(MasterKegiatan::query()->distinct('standar_pendidikan')->pluck('standar_pendidikan', 'standar_pendidikan'))
+                            ->searchable()
+                            ->live()
+                            ->dehydrated(false) 
+                            ->required(),
+
+                        // Field 2: URAIAN KEGIATAN
+                        Forms\Components\Select::make('uraian_kegiatan')
+                            ->label('Uraian Kegiatan')
+                            ->options(function (Get $get) {
+                                $standar = $get('standar_pendidikan');
+                                if (!$standar) { return []; }
+                                return MasterKegiatan::query()
+                                    ->where('standar_pendidikan', $standar)
+                                    ->distinct('uraian_kegiatan')
+                                    ->pluck('uraian_kegiatan', 'uraian_kegiatan');
+                            })
+                            ->searchable()
+                            ->live()
+                            ->dehydrated(false)
+                            ->required(),
+
+                        // Field 3: SUB KEGIATAN (Disimpan ke DB)
+                        Forms\Components\Select::make('kode_sub_kegiatan')
+                            ->label('Sub Kegiatan')
+                            ->options(function (Get $get) {
+                                $standar = $get('standar_pendidikan');
+                                $uraian = $get('uraian_kegiatan');
+                                if (!$standar || !$uraian) { return []; }
+                                return MasterKegiatan::query()
+                                    ->where('standar_pendidikan', $standar)
+                                    ->where('uraian_kegiatan', $uraian)
+                                    ->pluck('uraian_sub_kegiatan', 'kode_sub_kegiatan');
+                            })
+                            ->searchable()
                             ->required()
                             ->columnSpanFull(),
                         
-                        \Filament\Forms\Components\Grid::make(2)->schema([
-                            \Filament\Forms\Components\Select::make('bulan')
+                        // Tahun dan Bulan
+                        Forms\Components\Grid::make(2)->schema([
+                            Forms\Components\Select::make('bulan')
                                 ->options([
                                     'Januari' => 'Januari', 'Februari' => 'Februari', 'Maret' => 'Maret',
                                     'April' => 'April', 'Mei' => 'Mei', 'Juni' => 'Juni',
                                     'Juli' => 'Juli', 'Agustus' => 'Agustus', 'September' => 'September',
                                     'Oktober' => 'Oktober', 'November' => 'November', 'Desember' => 'Desember'
                                 ])->required(),
-                            \Filament\Forms\Components\TextInput::make('tahun')
+                            Forms\Components\TextInput::make('tahun')
                                 ->numeric()->default(date('Y'))->required(),
                         ]),
                         
-                        // Field Tanda Tangan
-                        \Filament\Forms\Components\Section::make('Data Pejabat / Tanda Tangan')
+                        // Tanda Tangan
+                        Forms\Components\Section::make('Data Pejabat / Tanda Tangan')
                             ->schema([
-                                \Filament\Forms\Components\TextInput::make('nama_kepala_sekolah')->label('Nama Kepsek'),
-                                \Filament\Forms\Components\TextInput::make('nama_bendahara')->label('Nama Bendahara'),
+                                Forms\Components\TextInput::make('nama_kepala_sekolah')->label('Nama Kepsek'),
+                                Forms\Components\TextInput::make('nama_bendahara')->label('Nama Bendahara'),
                             ])
                             ->columns(2)
                             ->collapsed(), 
                     ]),
 
-                // --- BAGIAN RINCIAN (BARANG) ---
-                \Filament\Forms\Components\Section::make('Rincian Belanja')
+                // --- BAGIAN 2: RINCIAN BELANJA ---
+                Forms\Components\Section::make('Rincian Belanja')
                     ->schema([
-                        \Filament\Forms\Components\Repeater::make('details')
+                        Forms\Components\Repeater::make('details')
                             ->relationship()
                             ->schema([
-                                \Filament\Forms\Components\Select::make('master_standar_harga_id')
+                                // Cari Barang
+                                Forms\Components\Select::make('master_standar_harga_id')
                                     ->label('Cari Barang (SSH/SBU)')
-                                    ->options(function ($state) { return []; })
+                                    ->options(function ($state) { return []; }) 
                                     ->getSearchResultsUsing(function (string $search) {
-                                        return \App\Models\MasterStandarHarga::query()
+                                        return MasterStandarHarga::query()
                                             ->where('uraian_barang', 'like', "%{$search}%")
                                             ->limit(50)
                                             ->get()
                                             ->mapWithKeys(fn ($item) => [$item->id => "{$item->uraian_barang} - Rp " . number_format($item->harga_satuan, 0, ',', '.')]);
                                     })
                                     ->searchable()
-                                    ->live()
+                                    ->live() 
                                     ->afterStateUpdated(function ($state, Set $set) {
                                         if ($state) {
-                                            $barang = \App\Models\MasterStandarHarga::find($state);
+                                            $barang = MasterStandarHarga::find($state);
                                             if ($barang) {
                                                 $set('uraian', $barang->uraian_barang);
                                                 $set('satuan', $barang->satuan);
@@ -90,44 +125,44 @@ class AnggaranResource extends Resource
                                         }
                                     }),
 
-                                \Filament\Forms\Components\TextInput::make('uraian')
+                                Forms\Components\TextInput::make('uraian')
                                     ->required()
                                     ->placeholder('Nama barang akan muncul otomatis...'),
 
-                                \Filament\Forms\Components\Grid::make(3)->schema([
-                                    \Filament\Forms\Components\TextInput::make('qty')
+                                Forms\Components\Grid::make(3)->schema([
+                                    Forms\Components\TextInput::make('qty')
                                         ->numeric()
                                         ->default(1)
-                                        ->live()
+                                        ->live(onBlur: true) 
                                         ->afterStateUpdated(fn ($state, Get $get, Set $set) => 
                                             $set('total_harga', (int)$state * (int)$get('harga_satuan'))
                                         ),
 
-                                    \Filament\Forms\Components\TextInput::make('harga_satuan')
+                                    Forms\Components\TextInput::make('harga_satuan')
                                         ->numeric()
-                                        ->live()
+                                        ->live(onBlur: true)
                                         ->afterStateUpdated(fn ($state, Get $get, Set $set) => 
                                             $set('total_harga', (int)$get('qty') * (int)$state)
                                         ),
 
-                                    \Filament\Forms\Components\TextInput::make('satuan'),
+                                    Forms\Components\TextInput::make('satuan'),
                                 ]),
 
-                                \Filament\Forms\Components\TextInput::make('total_harga')
+                                Forms\Components\TextInput::make('total_harga')
                                     ->readOnly()
                                     ->numeric()
                                     ->prefix('Rp'),
                             ])
                             ->columns(1)
                             ->defaultItems(1)
-                            ->live()
+                            ->live(onBlur: true)
                             ->afterStateUpdated(function (Get $get, Set $set) {
                                 $items = $get('details');
                                 $grandTotal = collect($items)->sum(fn ($item) => (int)($item['qty'] ?? 0) * (int)($item['harga_satuan'] ?? 0));
                                 $set('total_anggaran', $grandTotal);
                             }),
                             
-                        \Filament\Forms\Components\TextInput::make('total_anggaran')
+                        Forms\Components\TextInput::make('total_anggaran')
                             ->label('Total Anggaran Kegiatan')
                             ->readOnly()
                             ->numeric()
@@ -164,13 +199,10 @@ class AnggaranResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                //
-            ])
+            ->filters([])
             ->actions([
                 Tables\Actions\EditAction::make(),
                 
-                // TOMBOL CETAK PDF
                 Tables\Actions\Action::make('cetak')
                     ->label('Cetak PDF')
                     ->icon('heroicon-o-printer')
@@ -178,23 +210,19 @@ class AnggaranResource extends Resource
                     ->url(fn (Anggaran $record) => route('laporan.perencanaan', $record->id))
                     ->openUrlInNewTab(),
 
-                // TOMBOL MAGIC: REALISASIKAN
                 Tables\Actions\Action::make('realisasikan')
                     ->label('Buat Realisasi')
                     ->icon('heroicon-o-document-check')
                     ->color('warning')
                     ->requiresConfirmation()
                     ->modalHeading('Buat Dokumen Realisasi?')
-                    ->modalDescription('Sistem akan menyalin data rencana ini ke menu Realisasi. Anda bisa mengedit jumlah/harganya nanti.')
                     ->action(function (Anggaran $record) {
-                        // 1. Cek apakah sudah pernah direalisasikan?
                         $cek = Realisasi::where('anggaran_id', $record->id)->first();
                         if ($cek) {
-                            Notification::make()->title('Gagal')->body('Realisasi untuk kegiatan ini sudah ada!')->danger()->send();
+                            Notification::make()->title('Gagal')->body('Realisasi sudah ada!')->danger()->send();
                             return;
                         }
 
-                        // 2. Buat Header Realisasi (Copy dari Anggaran)
                         $realisasi = Realisasi::create([
                             'anggaran_id' => $record->id,
                             'kode_sub_kegiatan' => $record->kode_sub_kegiatan,
@@ -207,7 +235,6 @@ class AnggaranResource extends Resource
                             'total_realisasi' => $record->total_anggaran,
                         ]);
 
-                        // 3. Copy Detail Item Satu per Satu
                         foreach ($record->details as $detail) {
                             $realisasi->details()->create([
                                 'uraian' => $detail->uraian,
@@ -231,9 +258,7 @@ class AnggaranResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array

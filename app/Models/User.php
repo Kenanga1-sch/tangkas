@@ -13,15 +13,10 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
+     * KITA GANTI FILLABLE JADI GUARDED
+     * Agar kolom 'role' dan kolom baru lainnya otomatis diizinkan.
      */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
+    protected $guarded = [];
 
     /**
      * The attributes that should be hidden for serialization.

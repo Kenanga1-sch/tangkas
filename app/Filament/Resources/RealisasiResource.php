@@ -4,7 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\RealisasiResource\Pages;
 use App\Filament\Resources\RealisasiResource\RelationManagers;
-use App\Models\Realisasi; // <--- Pakai Model Realisasi
+use App\Models\Realisasi;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -19,7 +19,7 @@ class RealisasiResource extends Resource
 {
     protected static ?string $model = Realisasi::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check'; // Ikon beda biar keren
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
     protected static ?string $navigationLabel = 'Input Realisasi';
     protected static ?string $pluralModelLabel = 'Data Realisasi';
 
@@ -30,13 +30,48 @@ class RealisasiResource extends Resource
                 // --- BAGIAN HEADER (KEGIATAN) ---
                 \Filament\Forms\Components\Section::make('Informasi Kegiatan')
                     ->schema([
+                        // Field 1: STANDAR PENDIDIKAN
+                        \Filament\Forms\Components\Select::make('standar_pendidikan')
+                            ->label('Standar Pendidikan')
+                            ->options(\App\Models\MasterKegiatan::query()->distinct('standar_pendidikan')->pluck('standar_pendidikan', 'standar_pendidikan'))
+                            ->searchable()
+                            ->live()
+                            ->dehydrated(false) // <--- PERBAIKAN 1
+                            ->required(),
+
+                        // Field 2: URAIAN KEGIATAN
+                        \Filament\Forms\Components\Select::make('uraian_kegiatan')
+                            ->label('Uraian Kegiatan')
+                            ->options(function (\Filament\Forms\Get $get) {
+                                $standar = $get('standar_pendidikan');
+                                if (!$standar) { return []; }
+                                return \App\Models\MasterKegiatan::query()
+                                    ->where('standar_pendidikan', $standar)
+                                    ->distinct('uraian_kegiatan')
+                                    ->pluck('uraian_kegiatan', 'uraian_kegiatan');
+                            })
+                            ->searchable()
+                            ->live()
+                            ->dehydrated(false) // <--- PERBAIKAN 1
+                            ->required(),
+
+                        // Field 3: SUB KEGIATAN
                         \Filament\Forms\Components\Select::make('kode_sub_kegiatan')
-                            ->label('Pilih Kegiatan')
-                            ->options(\App\Models\MasterKegiatan::all()->pluck('uraian_sub_kegiatan', 'kode_sub_kegiatan'))
-                            ->searchable() 
+                            ->label('Sub Kegiatan')
+                            ->options(function (\Filament\Forms\Get $get) {
+                                $standar = $get('standar_pendidikan');
+                                $uraian = $get('uraian_kegiatan');
+                                if (!$standar || !$uraian) { return []; }
+                                return \App\Models\MasterKegiatan::query()
+                                    ->where('standar_pendidikan', $standar)
+                                    ->where('uraian_kegiatan', $uraian)
+                                    ->pluck('uraian_sub_kegiatan', 'kode_sub_kegiatan');
+                            })
+                            ->searchable()
                             ->required()
                             ->columnSpanFull(),
                         
+                        // Tahun dan Bulan
                         \Filament\Forms\Components\Grid::make(2)->schema([
                             \Filament\Forms\Components\Select::make('bulan')
                                 ->options([
@@ -49,7 +84,7 @@ class RealisasiResource extends Resource
                                 ->numeric()->default(date('Y'))->required(),
                         ]),
                         
-                        // Field Tanda Tangan
+                        // Tanda Tangan
                         \Filament\Forms\Components\Section::make('Data Pejabat / Tanda Tangan')
                             ->schema([
                                 \Filament\Forms\Components\TextInput::make('nama_kepala_sekolah')->label('Nama Kepsek'),
@@ -60,14 +95,14 @@ class RealisasiResource extends Resource
                     ]),
 
                 // --- BAGIAN RINCIAN (BARANG) ---
-                \Filament\Forms\Components\Section::make('Rincian Realisasi') // Judul diganti
+                \Filament\Forms\Components\Section::make('Rincian Realisasi')
                     ->schema([
                         \Filament\Forms\Components\Repeater::make('details')
                             ->relationship()
                             ->schema([
                                 \Filament\Forms\Components\Select::make('master_standar_harga_id')
                                     ->label('Cari Barang (SSH/SBU)')
-                                    ->helperText('Kosongkan jika ingin input manual sepenuhnya') // Petunjuk tambahan
+                                    ->helperText('Kosongkan jika ingin input manual sepenuhnya')
                                     ->options(function ($state) { return []; })
                                     ->getSearchResultsUsing(function (string $search) {
                                         return \App\Models\MasterStandarHarga::query()
@@ -98,14 +133,14 @@ class RealisasiResource extends Resource
                                     \Filament\Forms\Components\TextInput::make('qty')
                                         ->numeric()
                                         ->default(1)
-                                        ->live()
+                                        ->live(onBlur: true) // <--- PERBAIKAN 2
                                         ->afterStateUpdated(fn ($state, Get $get, Set $set) => 
                                             $set('total_harga', (int)$state * (int)$get('harga_satuan'))
                                         ),
 
                                     \Filament\Forms\Components\TextInput::make('harga_satuan')
                                         ->numeric()
-                                        ->live()
+                                        ->live(onBlur: true) // <--- PERBAIKAN 2
                                         ->afterStateUpdated(fn ($state, Get $get, Set $set) => 
                                             $set('total_harga', (int)$get('qty') * (int)$state)
                                         ),
@@ -120,14 +155,14 @@ class RealisasiResource extends Resource
                             ])
                             ->columns(1)
                             ->defaultItems(1)
-                            ->live()
+                            ->live(onBlur: true) // <--- PERBAIKAN 2
                             ->afterStateUpdated(function (Get $get, Set $set) {
                                 $items = $get('details');
                                 $grandTotal = collect($items)->sum(fn ($item) => (int)($item['qty'] ?? 0) * (int)($item['harga_satuan'] ?? 0));
-                                $set('total_realisasi', $grandTotal); // <--- Masuk ke total_realisasi
+                                $set('total_realisasi', $grandTotal);
                             }),
                             
-                        \Filament\Forms\Components\TextInput::make('total_realisasi') // <--- total_realisasi
+                        \Filament\Forms\Components\TextInput::make('total_realisasi')
                             ->label('Total Realisasi Kegiatan')
                             ->readOnly()
                             ->numeric()
@@ -151,7 +186,7 @@ class RealisasiResource extends Resource
                 Tables\Columns\TextColumn::make('nama_kepala_sekolah')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('total_realisasi') // <--- total_realisasi
+                Tables\Columns\TextColumn::make('total_realisasi')
                     ->label('Total Realisasi')
                     ->numeric()
                     ->money('IDR')
@@ -171,7 +206,6 @@ class RealisasiResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 
-                // TOMBOL BARU: CETAK REALISASI
                 Tables\Actions\Action::make('cetak')
                     ->label('Cetak Realisasi')
                     ->icon('heroicon-o-printer')

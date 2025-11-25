@@ -10,6 +10,18 @@ class Realisasi extends Model
 {
     protected $guarded = [];
 
+    // Getter Virtual
+    public function getStandarPendidikanAttribute()
+    {
+        return $this->kegiatan->standar_pendidikan ?? null;
+    }
+
+    public function getUraianKegiatanAttribute()
+    {
+        return $this->kegiatan->uraian_kegiatan ?? null;
+    }
+
+    // Relasi
     public function details(): HasMany
     {
         return $this->hasMany(RealisasiDetail::class);
