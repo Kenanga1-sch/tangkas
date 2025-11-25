@@ -1,0 +1,49 @@
+version: "3"
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sekolah-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+      - ./docker/php/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+    networks:
+      - sekolah-net
+
+  web:
+    image: nginx:alpine
+    container_name: sekolah-web
+    restart: unless-stopped
+    ports:
+      - "8889:80" # Akses web lewat http://ip-server-sekolah
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/conf.d/:/etc/nginx/conf.d/
+    depends_on:
+      - app
+    networks:
+      - sekolah-net
+
+  db:
+    image: mysql:8.0
+    container_name: sekolah-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: anggaran_sekolah
+      MYSQL_ROOT_PASSWORD: rahasia_admin # Ganti ini nanti
+      MYSQL_PASSWORD: password
+      MYSQL_USER: user_sekolah
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - sekolah-net
+
+networks:
+  sekolah-net:
+    driver: bridge
+
+volumes:
+  dbdata:
